@@ -16,6 +16,13 @@ const MAC_PROXY_MODE_OPTIONS = [
   { l: '白名单', v: 'whitelist' },
 ];
 
+const CTR_MODE_OPTIONS = [
+  { l: '禁用 (disable)', v: 'disable' },
+  { l: '内核开关 (switch)', v: 'switch' },
+  { l: '出站切换 (selector)', v: 'selector' },
+  { l: 'Clash模式切换 (mode)', v: 'mode' },
+];
+
 const CORE_MAINTAINER = 'CHIZI-0618';
 const FRONTEND_MAINTAINER = 'chrysoljq';
 const CORE_MAINTAINER_URL = 'https://github.com/CHIZI-0618';
@@ -25,7 +32,7 @@ const ISSUE_TRACKER = 'https://github.com/CHIZI-0618/box4magisk/issues';
 const UI_FEEDBACK_REPO = 'https://github.com/chrysoljq/box4magisk';
 const WIKI_URL = 'https://github.com/CHIZI-0618/box4magisk/blob/main/README_zh.md';
 
-type AdvancedPanelKey = 'routing' | 'interfaces' | 'ip-lists' | 'cn-source' | 'network' | 'about' | null;
+type AdvancedPanelKey = 'routing' | 'interfaces' | 'ip-lists' | 'cn-source' | 'network' | 'about' | 'auto-switch' | null;
 
 interface SettingsPageProps {
   status: BoxStatus;
@@ -350,6 +357,12 @@ export function SettingsPage({ status, config, handleToggle, handleChange }: Set
             onClick={() => setActivePanel('cn-source')}
           />
           <SecondaryEntryRow
+            icon={<Network size={18} />}
+            title="网络自动切换配置"
+            sub="配置连接不同 WiFi 时的自动启停与分流行为"
+            onClick={() => setActivePanel('auto-switch')}
+          />
+          <SecondaryEntryRow
             icon={<Info size={18} />}
             title="关于与支持"
             sub="查看版本信息、项目地址和联系开发者方式"
@@ -463,6 +476,115 @@ export function SettingsPage({ status, config, handleToggle, handleChange }: Set
               <InputRow label="热点接口名" value={config?.HOTSPOT_INTERFACE || ''} onChange={(value: string) => handleChange('HOTSPOT_INTERFACE', value)} />
               <InputRow label="USB 接口名" value={config?.USB_INTERFACE || ''} onChange={(value: string) => handleChange('USB_INTERFACE', value)} />
             </div>
+          </div>
+        </FloatingPanel>
+      )}
+
+      {activePanel === 'auto-switch' && (
+        <FloatingPanel title="网络自动切换配置" description="基于网络连接变化自动控制内核启停、出站选择器切换或 Clash 运行模式切换。" onClose={() => setActivePanel(null)}>
+          <div className="space-y-4">
+            <div className="space-y-4 rounded-3xl border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">切换控制模式 (ctr_mode)</div>
+              <SelectRow
+                label="工作模式"
+                value={config?.ctr_mode || 'disable'}
+                options={CTR_MODE_OPTIONS}
+                onChange={(value: string) => handleChange('ctr_mode', value)}
+              />
+            </div>
+
+            {config?.ctr_mode === 'switch' && (
+              <div className="space-y-4 rounded-3xl border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">内核开关设置</div>
+                <InputRow
+                  label="自动关闭代理的 WiFi 列表"
+                  value={config?.switch_wifi_list || ''}
+                  onChange={(value: string) => handleChange('switch_wifi_list', value)}
+                  placeholder="例如: HomeWiFi,WorkWiFi (留空表示连上任何 WiFi 均关闭)"
+                />
+              </div>
+            )}
+
+            {(config?.ctr_mode === 'selector' || config?.ctr_mode === 'mode') && (
+              <div className="space-y-4 rounded-3xl border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">自动分流与策略设置</div>
+                <SwitchRow
+                  label="自定义 SSID 匹配"
+                  sub="仅对指定 WiFi 名称使用独立设置，其它 WiFi 使用默认设置"
+                  checked={config?.use_custom_direct === 'true'}
+                  onChange={(value: boolean) => handleChange('use_custom_direct', value ? 'true' : 'false')}
+                  border={true}
+                />
+
+                {config?.ctr_mode === 'selector' && (
+                  <>
+                    <InputRow
+                      label="待切换的策略组"
+                      value={config?.select_outbound || ''}
+                      onChange={(value: string) => handleChange('select_outbound', value)}
+                      placeholder="例如: domestic"
+                    />
+                    <InputRow
+                      label="蜂窝网默认出站"
+                      value={config?.default_outbound || ''}
+                      onChange={(value: string) => handleChange('default_outbound', value)}
+                      placeholder="例如: direct"
+                    />
+                    <InputRow
+                      label="WiFi 默认出站"
+                      value={config?.direct_outbound || ''}
+                      onChange={(value: string) => handleChange('direct_outbound', value)}
+                      placeholder="例如: direct"
+                    />
+                    <InputRow
+                      label="蜂窝网指定出站"
+                      value={config?.proxy_outbound || ''}
+                      onChange={(value: string) => handleChange('proxy_outbound', value)}
+                      placeholder="例如: proxy"
+                    />
+                    {config?.use_custom_direct === 'true' && (
+                      <InputRow
+                        label="自定义 WiFi 策略列表"
+                        value={config?.direct_outbound_list || ''}
+                        onChange={(value: string) => handleChange('direct_outbound_list', value)}
+                        placeholder="格式: SSID,策略;SSID2,策略2"
+                      />
+                    )}
+                  </>
+                )}
+
+                {config?.ctr_mode === 'mode' && (
+                  <>
+                    <InputRow
+                      label="蜂窝网默认 Clash 模式"
+                      value={config?.default_clash_mode || ''}
+                      onChange={(value: string) => handleChange('default_clash_mode', value)}
+                      placeholder="例如: rule"
+                    />
+                    <InputRow
+                      label="WiFi 默认 Clash 模式"
+                      value={config?.direct_clash_mode || ''}
+                      onChange={(value: string) => handleChange('direct_clash_mode', value)}
+                      placeholder="例如: rule"
+                    />
+                    <InputRow
+                      label="蜂窝网指定 Clash 模式"
+                      value={config?.proxy_clash_mode || ''}
+                      onChange={(value: string) => handleChange('proxy_clash_mode', value)}
+                      placeholder="例如: global"
+                    />
+                    {config?.use_custom_direct === 'true' && (
+                      <InputRow
+                        label="自定义 WiFi Clash 模式列表"
+                        value={config?.direct_clash_mode_list || ''}
+                        onChange={(value: string) => handleChange('direct_clash_mode_list', value)}
+                        placeholder="格式: SSID,模式;SSID2,模式2"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </FloatingPanel>
       )}

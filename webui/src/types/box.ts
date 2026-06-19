@@ -86,6 +86,7 @@ export interface BoxConfig {
   direct_clash_mode?: string;
   proxy_clash_mode?: string;
   direct_clash_mode_list?: string;
+  switch_wifi_list?: string;
   [key: string]: string | number | boolean | undefined;
 }
 

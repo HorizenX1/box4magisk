@@ -35,12 +35,39 @@ switchMode() {
             switchMode $@
         fi
     else # connect, on WiFi
-        if [ "${sta}" = "0" ]; then
-            stop_core
-            sleep 3
-        elif [ "${sta}" = 2 ] || [ "${sta}" = 3 ]; then
-            sleep 1
-            switchMode $@
+        local should_stop=true
+        if [ -n "${switch_wifi_list}" ]; then
+            local current_ssid=$(ssid)
+            if [ "${current_ssid}" = "<unknown ssid>" ] || [ -z "${current_ssid}" ]; then
+                # SSID is not yet resolved. Do nothing to avoid start/stop loops.
+                return 0
+            fi
+            case ",${switch_wifi_list}," in
+                *,${current_ssid},*)
+                    should_stop=true
+                    ;;
+                *)
+                    should_stop=false
+                    ;;
+            esac
+        fi
+
+        if [ "${should_stop}" = "true" ]; then
+            if [ "${sta}" = "0" ]; then
+                stop_core
+                sleep 3
+            elif [ "${sta}" = 2 ] || [ "${sta}" = 3 ]; then
+                sleep 1
+                switchMode $@
+            fi
+        else
+            if [ "${sta}" = "1" ]; then
+                start_core
+                sleep 3
+            elif [ "${sta}" = 2 ] || [ "${sta}" = 3 ]; then
+                sleep 1
+                switchMode $@
+            fi
         fi
     fi
 }
