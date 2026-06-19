@@ -9,12 +9,15 @@ on:
     tags-ignore:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,6 +37,7 @@ jobs:
 
       - name: Delete current prerelease assets
         uses: andreaswilli/delete-release-assets-action@v3.0.0
+        continue-on-error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: Prerelease
